@@ -4,6 +4,7 @@ import { ExtractedRouteNode, HttpMethod } from '../../types/ast';
 import { sliceSourceLines } from '../code-slicer';
 import { Project } from 'ts-morph';
 import { extractExpressRoutes } from '../express-extractor';
+import { extractGoRoutesTreeSitter } from '../treesitter/go-extractor';
 
 export type DetectedLanguage = 'typescript' | 'javascript' | 'python' | 'go' | 'java' | 'rust' | 'polyglot' | 'unknown';
 
@@ -54,11 +55,11 @@ export function detectRepoLanguage(sourceFiles: string[]): DetectedLanguage {
  * Sweeps all present languages in the repository and aggregates routes so mixed repos
  * (e.g. Python backend + Node/Express services) never silently hide routes from either language.
  */
-export function extractUniversalRoutes(
+export async function extractUniversalRoutes(
   repoDir: string,
   sourceFiles: string[],
   tsProject?: Project
-): MultiLangExtractionResult {
+): Promise<MultiLangExtractionResult> {
   const primaryLang = detectRepoLanguage(sourceFiles);
   const aggregatedRoutes: ExtractedRouteNode[] = [];
   const detectedFrameworks: string[] = [];
@@ -104,14 +105,30 @@ export function extractUniversalRoutes(
     }
   }
 
-  // 3. Go Extraction (Gin, Fiber, net/http)
+  // 3. Go Extraction (Gin, Fiber, Echo, Chi, net/http via Tree-sitter AST)
   const goFiles = sourceFiles.filter((f) => f.endsWith('.go'));
   if (goFiles.length > 0) {
-    const goRoutes = extractGoRoutes(repoDir, goFiles);
-    if (goRoutes.length > 0) {
-      aggregatedRoutes.push(...goRoutes);
-      detectedFrameworks.push('Go (Gin/net)');
-      activeLanguages.add('go');
+    let treeSitterSuccess = false;
+    try {
+      const tsResult = await extractGoRoutesTreeSitter(repoDir, goFiles);
+      if (tsResult.routes.length > 0) {
+        aggregatedRoutes.push(...tsResult.routes);
+        detectedFrameworks.push(tsResult.framework);
+        activeLanguages.add('go');
+        treeSitterSuccess = true;
+      }
+    } catch (err) {
+      console.warn('[Go Tree-sitter] Fallback to regex scanner due to error:', err);
+    }
+
+    // Fallback to regex scanner only if Tree-sitter found nothing or encountered an error
+    if (!treeSitterSuccess) {
+      const goRoutes = extractGoRoutes(repoDir, goFiles);
+      if (goRoutes.length > 0) {
+        aggregatedRoutes.push(...goRoutes);
+        detectedFrameworks.push('Go (Gin/net)');
+        activeLanguages.add('go');
+      }
     }
   }
 

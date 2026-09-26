@@ -131,8 +131,6 @@ export function buildRouteGraph(
   nodes.push(rootNode);
 
   // 4. Populate Each Domain Island
-  const functionNodesMap = new Map<string, string>();
-
   domains.forEach(([domainName, domainRoutes], dIndex) => {
     const colIndex = dIndex % ISLAND_COLS;
     const rowIndex = Math.floor(dIndex / ISLAND_COLS);
@@ -231,40 +229,37 @@ export function buildRouteGraph(
       });
 
       // D. Function nodes invoked by this route (Placed to the right of the route within the island)
-      route.calledFunctions.forEach((funcName, fIndex) => {
-        let fnNodeId = functionNodesMap.get(funcName);
+      const uniqueFuncs = Array.from(new Set(route.calledFunctions)).filter(Boolean);
+      uniqueFuncs.forEach((funcName, fIndex) => {
+        const cleanFn = funcName.replace(/[^a-zA-Z0-9_-]/g, '-');
+        const fnNodeId = `fn-${route.id}-${cleanFn}`;
 
-        if (!fnNodeId) {
-          fnNodeId = `fn-${funcName.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-          functionNodesMap.set(funcName, fnNodeId);
+        const fnX = routeX + 310;
+        const fnY = routeY + (fIndex * 50);
 
-          const fnX = routeX + 310;
-          const fnY = routeY + (fIndex * 50);
-
-          nodes.push({
-            id: fnNodeId,
-            type: 'default',
-            position: { x: fnX, y: fnY },
-            data: {
-              label: `⚙️ ${funcName}()`,
-              httpMethod: 'ALL',
-              routePath: funcName,
-              location: route.location,
-              codeSnippet: `// Invoked handler function:\n${funcName}()`,
-              calledFunctions: [],
-            },
-            style: {
-              background: 'rgba(15, 23, 42, 0.95)',
-              color: '#93c5fd',
-              border: '1px solid #38bdf8',
-              borderRadius: '8px',
-              fontSize: '11px',
-              fontFamily: 'monospace',
-              padding: '6px 10px',
-              width: 190,
-            },
-          });
-        }
+        nodes.push({
+          id: fnNodeId,
+          type: 'default',
+          position: { x: fnX, y: fnY },
+          data: {
+            label: `⚙️ ${funcName}()`,
+            httpMethod: 'ALL',
+            routePath: funcName,
+            location: route.location,
+            codeSnippet: `// Invoked handler function:\n${funcName}()`,
+            calledFunctions: [],
+          },
+          style: {
+            background: 'rgba(15, 23, 42, 0.95)',
+            color: '#93c5fd',
+            border: '1px solid #38bdf8',
+            borderRadius: '8px',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            padding: '6px 10px',
+            width: 190,
+          },
+        });
 
         // Local Edge: Route -> Function
         edges.push({

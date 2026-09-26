@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 5 & 6 (Multi-language): Extract routes across TS/JS, Python, Go, Java, Rust
-    const extraction = extractUniversalRoutes(repoDir, fileTree.sourceFiles, tsProject);
+    const extraction = await extractUniversalRoutes(repoDir, fileTree.sourceFiles, tsProject);
 
     // Step 13: Handle parsing failures gracefully
     if (extraction.routes.length === 0) {
