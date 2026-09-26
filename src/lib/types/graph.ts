@@ -11,7 +11,7 @@ export interface RouteNodeData {
   [key: string]: unknown;
 }
 
-export type CanvasRouteNode = Node<RouteNodeData, 'routeNode'>;
+export type CanvasRouteNode = Node<RouteNodeData, 'routeNode' | 'functionNode' | 'default'>;
 
 export interface GraphPayload {
   nodes: CanvasRouteNode[];
