@@ -7,7 +7,7 @@ import fs from 'fs';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { repoUrl } = body;
+    const { repoUrl, authToken } = body;
 
     if (!repoUrl || typeof repoUrl !== 'string') {
       return NextResponse.json(
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 3: Clone public GitHub repository into a temp folder
-    const cloneResult = await cloneRepository(trimmedUrl);
+    // Step 3 & 15: Clone public or authenticated private GitHub repository
+    const cloneResult = await cloneRepository(trimmedUrl, authToken);
 
     // Step 4: Sanity check - confirm files are readable on disk and log file list
     const sanity = inspectRepoFiles(cloneResult.targetDir);

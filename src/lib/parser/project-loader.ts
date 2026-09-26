@@ -1,4 +1,4 @@
-import { Project, ProjectOptions } from 'ts-morph';
+import { Project, type ProjectOptions } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
 

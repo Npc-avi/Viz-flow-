@@ -31,10 +31,15 @@ export function parseGitHubUrl(rawUrl: string): { owner: string; name: string; c
 }
 
 /**
- * Clones a public repository into a safe temporary directory
+ * Clones a repository into a safe temporary directory, supporting optional GitHub OAuth/Personal Token for private repos
  */
-export async function cloneRepository(repoUrl: string): Promise<CloneResult> {
-  const { name, cleanUrl } = parseGitHubUrl(repoUrl);
+export async function cloneRepository(repoUrl: string, authToken?: string): Promise<CloneResult> {
+  const { owner, name, cleanUrl } = parseGitHubUrl(repoUrl);
+  
+  // If private repo auth token provided, format authenticated Git URL
+  const targetGitUrl = authToken?.trim()
+    ? `https://x-access-token:${encodeURIComponent(authToken.trim())}@github.com/${owner}/${name}.git`
+    : cleanUrl;
   
   // Unique deterministic/random ID for this clone session
   const randomSuffix = crypto.randomBytes(4).toString('hex');
@@ -62,7 +67,7 @@ export async function cloneRepository(repoUrl: string): Promise<CloneResult> {
 
   try {
     // Perform shallow clone (--depth 1) for speed and resource efficiency
-    await git.clone(cleanUrl, targetDir, ['--depth', '1', '--single-branch']);
+    await git.clone(targetGitUrl, targetDir, ['--depth', '1', '--single-branch']);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     // Cleanup if partially cloned
