@@ -22,7 +22,16 @@ const IGNORED_DIRS = new Set([
   '.vscode',
 ]);
 
-const SOURCE_EXTENSIONS = new Set(['.ts', '.js', '.tsx', '.jsx', '.mjs', '.cjs']);
+const SOURCE_EXTENSIONS = new Set([
+  '.ts', '.js', '.tsx', '.jsx', '.mjs', '.cjs',
+  '.py', '.pyw',
+  '.go',
+  '.java', '.kt',
+  '.rs',
+  '.rb',
+  '.php',
+  '.cs',
+]);
 
 /**
  * Traverses a repository directory, checks readability, and collects file paths
