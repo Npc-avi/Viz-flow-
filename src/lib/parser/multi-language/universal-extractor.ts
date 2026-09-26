@@ -5,7 +5,7 @@ import { sliceSourceLines } from '../code-slicer';
 import { Project } from 'ts-morph';
 import { extractExpressRoutes } from '../express-extractor';
 
-export type DetectedLanguage = 'typescript' | 'javascript' | 'python' | 'go' | 'java' | 'rust' | 'unknown';
+export type DetectedLanguage = 'typescript' | 'javascript' | 'python' | 'go' | 'java' | 'rust' | 'polyglot' | 'unknown';
 
 export interface MultiLangExtractionResult {
   language: DetectedLanguage;
@@ -25,6 +25,7 @@ export function detectRepoLanguage(sourceFiles: string[]): DetectedLanguage {
     go: 0,
     java: 0,
     rust: 0,
+    polyglot: 0,
     unknown: 0,
   };
 
@@ -50,56 +51,56 @@ export function detectRepoLanguage(sourceFiles: string[]): DetectedLanguage {
 
 /**
  * Universal Route Extractor across multiple languages (Python, Go, Java, Rust, TS/JS).
- * Runs language-specific and multi-pass checks to guarantee detection on full-stack and monorepo codebases.
+ * Sweeps all present languages in the repository and aggregates routes so mixed repos
+ * (e.g. Python backend + Node/Express services) never silently hide routes from either language.
  */
 export function extractUniversalRoutes(
   repoDir: string,
   sourceFiles: string[],
   tsProject?: Project
 ): MultiLangExtractionResult {
-  const detectedLang = detectRepoLanguage(sourceFiles);
+  const primaryLang = detectRepoLanguage(sourceFiles);
+  const aggregatedRoutes: ExtractedRouteNode[] = [];
+  const detectedFrameworks: string[] = [];
+  const activeLanguages = new Set<DetectedLanguage>();
 
   // 1. Python Extraction (FastAPI, Flask, Django)
   const pythonFiles = sourceFiles.filter((f) => f.endsWith('.py'));
   if (pythonFiles.length > 0) {
     const pythonResult = extractPythonRoutes(repoDir, pythonFiles);
     if (pythonResult.routes.length > 0) {
-      return {
-        language: 'python',
-        framework: pythonResult.framework,
-        routes: pythonResult.routes,
-        scannedFilesCount: pythonFiles.length,
-      };
+      aggregatedRoutes.push(...pythonResult.routes);
+      detectedFrameworks.push(pythonResult.framework);
+      activeLanguages.add('python');
     }
   }
 
   // 2. TypeScript & JavaScript Extraction (Express, Fastify, Next.js, NestJS)
   const jsTsFiles = sourceFiles.filter((f) => /\.(ts|js|mjs|cjs|jsx|tsx)$/i.test(f));
   if (jsTsFiles.length > 0) {
+    let jsRoutesFound = false;
+
     if (tsProject) {
       try {
         const astResult = extractExpressRoutes(tsProject, repoDir);
         if (astResult.routes.length > 0) {
-          return {
-            language: detectedLang === 'typescript' ? 'typescript' : 'javascript',
-            framework: 'Express.js / Node',
-            routes: astResult.routes,
-            scannedFilesCount: astResult.scannedFilesCount,
-          };
+          aggregatedRoutes.push(...astResult.routes);
+          detectedFrameworks.push('Express.js');
+          activeLanguages.add(primaryLang === 'typescript' ? 'typescript' : 'javascript');
+          jsRoutesFound = true;
         }
       } catch {
         // Fallback to direct JS/TS scanner
       }
     }
 
-    const directRoutes = extractJsTsRoutes(repoDir, jsTsFiles);
-    if (directRoutes.length > 0) {
-      return {
-        language: detectedLang === 'typescript' ? 'typescript' : 'javascript',
-        framework: 'Express.js / Node',
-        routes: directRoutes,
-        scannedFilesCount: jsTsFiles.length,
-      };
+    if (!jsRoutesFound) {
+      const directRoutes = extractJsTsRoutes(repoDir, jsTsFiles);
+      if (directRoutes.length > 0) {
+        aggregatedRoutes.push(...directRoutes);
+        detectedFrameworks.push('Node / Express');
+        activeLanguages.add(primaryLang === 'typescript' ? 'typescript' : 'javascript');
+      }
     }
   }
 
@@ -108,12 +109,9 @@ export function extractUniversalRoutes(
   if (goFiles.length > 0) {
     const goRoutes = extractGoRoutes(repoDir, goFiles);
     if (goRoutes.length > 0) {
-      return {
-        language: 'go',
-        framework: 'Gin / net/http',
-        routes: goRoutes,
-        scannedFilesCount: goFiles.length,
-      };
+      aggregatedRoutes.push(...goRoutes);
+      detectedFrameworks.push('Go (Gin/net)');
+      activeLanguages.add('go');
     }
   }
 
@@ -122,12 +120,9 @@ export function extractUniversalRoutes(
   if (javaFiles.length > 0) {
     const javaRoutes = extractJavaRoutes(repoDir, javaFiles);
     if (javaRoutes.length > 0) {
-      return {
-        language: 'java',
-        framework: 'Spring Boot',
-        routes: javaRoutes,
-        scannedFilesCount: javaFiles.length,
-      };
+      aggregatedRoutes.push(...javaRoutes);
+      detectedFrameworks.push('Spring Boot');
+      activeLanguages.add('java');
     }
   }
 
@@ -136,19 +131,31 @@ export function extractUniversalRoutes(
   if (rustFiles.length > 0) {
     const rustRoutes = extractRustRoutes(repoDir, rustFiles);
     if (rustRoutes.length > 0) {
-      return {
-        language: 'rust',
-        framework: 'Actix / Axum',
-        routes: rustRoutes,
-        scannedFilesCount: rustFiles.length,
-      };
+      aggregatedRoutes.push(...rustRoutes);
+      detectedFrameworks.push('Rust (Actix/Axum)');
+      activeLanguages.add('rust');
     }
   }
 
+  // If no routes detected anywhere, return graceful empty result
+  if (aggregatedRoutes.length === 0) {
+    return {
+      language: primaryLang,
+      framework: 'Generic Service',
+      routes: [],
+      scannedFilesCount: sourceFiles.length,
+    };
+  }
+
+  // Resolve combined framework and language labels
+  const finalLanguage: DetectedLanguage =
+    activeLanguages.size > 1 ? 'polyglot' : activeLanguages.values().next().value || primaryLang;
+  const finalFramework = Array.from(new Set(detectedFrameworks)).join(' + ');
+
   return {
-    language: detectedLang,
-    framework: 'Generic Service',
-    routes: [],
+    language: finalLanguage,
+    framework: finalFramework,
+    routes: aggregatedRoutes,
     scannedFilesCount: sourceFiles.length,
   };
 }
