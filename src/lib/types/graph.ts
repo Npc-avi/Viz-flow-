@@ -2,6 +2,7 @@ import type { Node, Edge } from '@xyflow/react';
 import type { HttpMethod, CodeLocation } from './ast';
 
 export interface RouteNodeData {
+  label?: string;
   httpMethod: HttpMethod;
   routePath: string;
   handlerName?: string;
