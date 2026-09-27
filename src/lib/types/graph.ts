@@ -20,7 +20,7 @@ export interface RouteNodeData {
 
 export type CanvasRouteNode = Node<
   RouteNodeData,
-  'routeNode' | 'functionNode' | 'default' | 'group' | 'gatewayNode' | 'domainHub' | 'domainContainer'
+  'routeNode' | 'functionNode' | 'default' | 'group' | 'gatewayNode' | 'domainHub'
 >;
 
 export interface GraphPayload {

@@ -21,7 +21,6 @@ import RouteNode from './RouteNode';
 import GatewayNode from './GatewayNode';
 import DomainHubNode from './DomainHubNode';
 import FunctionNode from './FunctionNode';
-import DomainContainerNode from './DomainContainerNode';
 import { CanvasRouteNode, RouteNodeData } from '@/lib/types/graph';
 import { Maximize2, ZoomIn, ZoomOut, Layers, Eye, EyeOff, Filter } from 'lucide-react';
 
@@ -167,7 +166,6 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
       gatewayNode: GatewayNode,
       domainHub: DomainHubNode,
       functionNode: FunctionNode,
-      domainContainer: DomainContainerNode,
     }),
     []
   );
@@ -298,11 +296,6 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
           position="bottom-right"
           nodeColor={(node) => {
             if (node.hidden) return 'transparent';
-            if (node.type === 'domainContainer') {
-              const data = node.data as RouteNodeData;
-              const color = (data?.domainColor as string) || '#38bdf8';
-              return `${color}18`;
-            }
             if (node.type === 'routeNode') {
               const data = node.data as RouteNodeData;
               if (data?.httpMethod === 'GET') return '#10b981';
@@ -319,15 +312,22 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
           }}
           nodeStrokeColor={(node) => {
             if (node.hidden) return 'transparent';
-            if (node.type === 'domainContainer') {
+            if (node.type === 'routeNode') {
               const data = node.data as RouteNodeData;
-              return (data?.domainColor as string) || '#38bdf8';
+              if (data?.httpMethod === 'GET') return '#34d399';
+              if (data?.httpMethod === 'POST') return '#818cf8';
+              if (data?.httpMethod === 'PUT') return '#fbbf24';
+              if (data?.httpMethod === 'DELETE') return '#fb7185';
+              if (data?.httpMethod === 'PATCH') return '#c084fc';
+              return '#38bdf8';
             }
-            if (node.type === 'gatewayNode' || node.id === 'gateway-root') return '#818cf8';
-            return 'transparent';
+            if (node.type === 'domainHub') return '#a5b4fc';
+            if (node.type === 'gatewayNode') return '#a5b4fc';
+            if (node.type === 'functionNode') return '#22d3ee';
+            return '#475569';
           }}
-          nodeStrokeWidth={2}
-          nodeBorderRadius={6}
+          nodeStrokeWidth={1.5}
+          nodeBorderRadius={4}
           pannable={true}
           zoomable={true}
           className="!bg-slate-950/90 !border !border-slate-800 !rounded-xl !shadow-2xl overflow-hidden"
