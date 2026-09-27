@@ -78,13 +78,35 @@ function normalizeDjangoPattern(pattern: string): string {
 function collectCallsFromBlock(blockNode: any): string[] {
   const calls: string[] = [];
 
+  function cleanCallName(fnNode: any): string | null {
+    if (!fnNode) return null;
+    if (fnNode.type === 'identifier') {
+      return fnNode.text.trim();
+    }
+    if (fnNode.type === 'attribute') {
+      const attr = fnNode.childForFieldName('attribute')?.text?.trim();
+      const obj = fnNode.childForFieldName('object');
+      if (attr && obj) {
+        if (obj.type === 'identifier') {
+          return `${obj.text.trim()}.${attr}`;
+        }
+        return attr;
+      }
+    }
+    const raw = fnNode.text.replace(/[\r\n\t]+/g, ' ').trim();
+    if (raw.length <= 35 && !raw.includes('(')) {
+      return raw;
+    }
+    return null;
+  }
+
   function walk(node: any) {
     if (node.type === 'call') {
       const fnNode = node.childForFieldName('function');
       if (fnNode) {
-        const fnText = fnNode.text.trim();
-        if (fnText && !PYTHON_BUILTINS.has(fnText)) {
-          calls.push(fnText);
+        const fnName = cleanCallName(fnNode);
+        if (fnName && !PYTHON_BUILTINS.has(fnName)) {
+          calls.push(fnName);
         }
       }
     }

@@ -18,6 +18,10 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import RouteNode from './RouteNode';
+import GatewayNode from './GatewayNode';
+import DomainHubNode from './DomainHubNode';
+import FunctionNode from './FunctionNode';
+import DomainContainerNode from './DomainContainerNode';
 import { CanvasRouteNode, RouteNodeData } from '@/lib/types/graph';
 import { Maximize2, ZoomIn, ZoomOut, Layers, Eye, EyeOff, Filter } from 'lucide-react';
 
@@ -160,6 +164,10 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
   const nodeTypes: NodeTypes = useMemo(
     () => ({
       routeNode: RouteNode,
+      gatewayNode: GatewayNode,
+      domainHub: DomainHubNode,
+      functionNode: FunctionNode,
+      domainContainer: DomainContainerNode,
     }),
     []
   );
@@ -292,6 +300,7 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
         <MiniMap
           nodeColor={(node) => {
             if (node.hidden) return 'transparent';
+            if (node.type === 'domainContainer') return 'transparent';
             if (node.type === 'routeNode') {
               const data = node.data as RouteNodeData;
               if (data?.httpMethod === 'GET') return '#10b981';
@@ -299,8 +308,9 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
               if (data?.httpMethod === 'DELETE') return '#f43f5e';
               return '#38bdf8';
             }
-            if (node.id.startsWith('domain-hub-')) return '#818cf8';
-            if (node.id === 'gateway-root') return '#6366f1';
+            if (node.type === 'domainHub' || node.id.startsWith('domain-hub-')) return '#818cf8';
+            if (node.type === 'gatewayNode' || node.id === 'gateway-root') return '#6366f1';
+            if (node.type === 'functionNode') return '#06b6d4';
             return '#334155';
           }}
           className="!bg-slate-950/80 !border-slate-800 !rounded-xl overflow-hidden"

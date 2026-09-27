@@ -92,21 +92,23 @@ export function buildRouteGraph(
   const domainMetas: DomainLayoutMeta[] = domains.map(([domainName, domainRoutes]) => {
     let hasFunctions = false;
     const routeRowHeights: number[] = [];
-    let cumulativeHeight = 65; // initial top offset for container badge
+    let cumulativeHeight = 85; // Top offset for container header title badge
 
     domainRoutes.forEach((route) => {
       const uniqueFuncs = Array.from(new Set(route.calledFunctions)).filter(Boolean);
       if (uniqueFuncs.length > 0) {
         hasFunctions = true;
       }
-      // Calculate row height: Route card (74px) + vertical stack of function cards (52px each)
-      const rowHeight = Math.max(88, uniqueFuncs.length * 52);
+      // Actual DOM height of RouteCard (with path, method, file, and dependency pills) is ~175px
+      const cardHeight = uniqueFuncs.length > 0 ? 190 : 130;
+      const functionsStackHeight = uniqueFuncs.length * 48;
+      const rowHeight = Math.max(cardHeight, functionsStackHeight);
       routeRowHeights.push(rowHeight);
-      cumulativeHeight += rowHeight + 28; // 28px margin between route rows
+      cumulativeHeight += rowHeight + 36; // 36px generous margin between consecutive route rows
     });
 
-    const containerWidth = hasFunctions ? 890 : 640;
-    const containerHeight = Math.max(220, cumulativeHeight + 20);
+    const containerWidth = hasFunctions ? 890 : 620;
+    const containerHeight = Math.max(260, cumulativeHeight + 30);
 
     return {
       domainName,
@@ -121,8 +123,8 @@ export function buildRouteGraph(
   // 3. Grid geometry: 2 columns for up to 6 domains, 3 columns for 7+
   const ISLAND_COLS = numDomains <= 2 ? numDomains : numDomains <= 6 ? 2 : 3;
   const DEFAULT_CONTAINER_WIDTH = 890;
-  const ISLAND_SPACING_X = 140;
-  const ISLAND_SPACING_Y = 120;
+  const ISLAND_SPACING_X = 160;
+  const ISLAND_SPACING_Y = 140;
 
   // Calculate row heights across the 2D grid to ensure zero vertical collision between rows of islands
   const gridRowHeights: number[] = [];
@@ -142,26 +144,15 @@ export function buildRouteGraph(
   const rootNodeId = 'gateway-root';
   const rootNode: CanvasRouteNode = {
     id: rootNodeId,
-    type: 'default',
-    position: { x: totalGridWidth / 2 - 130, y: -140 },
+    type: 'gatewayNode',
+    position: { x: (totalGridWidth - ISLAND_SPACING_X) / 2 - 140, y: -150 },
     data: {
-      label: `🌐 ${entrypointLabel} Gateway`,
+      label: `${entrypointLabel} Gateway`,
       httpMethod: 'ALL',
       routePath: '/',
       location: { filePath: 'app-entrypoint', startLine: 1, endLine: 1 },
       codeSnippet: `// Central API Gateway & Dispatcher\n// Orchestrates incoming requests across ${numDomains} domain cluster(s)`,
       calledFunctions: [],
-    },
-    style: {
-      background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-      color: '#e0e7ff',
-      border: '2px solid #818cf8',
-      borderRadius: '14px',
-      fontSize: '13px',
-      fontWeight: 700,
-      padding: '12px 20px',
-      boxShadow: '0 12px 30px -5px rgba(99, 102, 241, 0.5)',
-      width: 260,
     },
   };
   nodes.push(rootNode);
@@ -182,38 +173,28 @@ export function buildRouteGraph(
     // A. Visual Bounded Container Node (The Bounded Island Box)
     nodes.push({
       id: containerId,
-      type: 'default',
+      type: 'domainContainer',
       position: { x: islandX, y: islandY },
       data: {
-        label: `📦 ${domainName} (${domainRoutes.length} Endpoint${domainRoutes.length > 1 ? 's' : ''})`,
+        label: `📦 ${domainName}`,
         httpMethod: 'ALL',
         routePath: `/${domainName.toLowerCase().replace(/ domain/g, '')}`,
         location: domainRoutes[0].location,
         codeSnippet: `// ${domainName} Subsystem Container\n// Contains ${domainRoutes.length} routes with full dependency tracing`,
         calledFunctions: [],
-      },
-      style: {
-        width: containerWidth,
-        height: containerHeight,
-        background: theme.containerBg,
-        border: `1.5px dashed ${theme.border}`,
-        borderRadius: '20px',
-        boxShadow: `0 12px 36px -6px ${theme.glow}`,
-        padding: '14px 18px',
-        fontSize: '12px',
-        fontWeight: 700,
-        color: theme.text,
-        letterSpacing: '0.04em',
-        zIndex: -1,
-        pointerEvents: 'none',
+        domainName,
+        endpointCount: domainRoutes.length,
+        domainColor: theme.border,
+        containerWidth,
+        containerHeight,
       },
     });
 
     // B. Domain Hub Node (Vertically centered inside the container on the left)
-    const hubY = islandY + Math.max(65, (containerHeight / 2) - 30);
+    const hubY = islandY + Math.max(85, (containerHeight / 2) - 40);
     nodes.push({
       id: domainHubId,
-      type: 'default',
+      type: 'domainHub',
       position: { x: islandX + 35, y: hubY },
       data: {
         label: `📁 ${domainName}`,
@@ -222,17 +203,10 @@ export function buildRouteGraph(
         location: domainRoutes[0].location,
         codeSnippet: `// ${domainName} Cluster\n// Contains ${domainRoutes.length} route endpoint(s)`,
         calledFunctions: [],
-      },
-      style: {
-        background: theme.bg,
-        color: theme.text,
-        border: `2px solid ${theme.border}`,
-        borderRadius: '12px',
-        fontSize: '13px',
-        fontWeight: 600,
-        padding: '10px 16px',
-        boxShadow: `0 8px 20px -4px ${theme.glow}`,
-        width: 210,
+        domainName,
+        endpointCount: domainRoutes.length,
+        domainColor: theme.border,
+        domainId: containerId,
       },
     });
 
@@ -257,7 +231,7 @@ export function buildRouteGraph(
     });
 
     // D. Route Nodes & Function Nodes inside the Container
-    let currentRelY = 65;
+    let currentRelY = 85;
 
     domainRoutes.forEach((route, rIndex) => {
       const routeX = islandX + 295;
@@ -313,17 +287,17 @@ export function buildRouteGraph(
         const cleanFn = funcName.replace(/[^a-zA-Z0-9_-]/g, '-');
         const fnNodeId = `fn-${route.id}-${cleanFn}`;
 
-        const fnX = routeX + 330;
-        const fnY = routeY + (fIndex * 50);
+        const fnX = routeX + 325;
+        const fnY = routeY + (fIndex * 48);
 
         nodes.push({
           id: fnNodeId,
-          type: 'default',
+          type: 'functionNode',
           hidden: true, // Progressive disclosure: folded by default
           position: { x: fnX, y: fnY },
           data: {
             id: fnNodeId,
-            label: `⚙️ ${funcName}()`,
+            label: `${funcName}()`,
             httpMethod: 'ALL',
             routePath: funcName,
             location: route.location,
@@ -332,16 +306,6 @@ export function buildRouteGraph(
             parentRouteId: route.id,
             domainName,
             domainId: containerId,
-          },
-          style: {
-            background: 'rgba(15, 23, 42, 0.95)',
-            color: '#93c5fd',
-            border: '1px solid #38bdf8',
-            borderRadius: '8px',
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            padding: '6px 10px',
-            width: 200,
           },
         });
 
@@ -357,22 +321,22 @@ export function buildRouteGraph(
             domainId: containerId,
           },
           style: {
-            stroke: '#94a3b8',
+            stroke: '#38bdf8',
             strokeWidth: 1.5,
             strokeDasharray: '4 4',
-            strokeOpacity: 0.7,
+            strokeOpacity: 0.75,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: '#94a3b8',
+            color: '#38bdf8',
             width: 10,
             height: 10,
           },
         });
       });
 
-      // Advance Y position with guaranteed clearance for all function nodes in this row
-      currentRelY += rowHeight + 28;
+      // Advance Y position with guaranteed clearance matching metadata
+      currentRelY += rowHeight + 36;
     });
   });
 
