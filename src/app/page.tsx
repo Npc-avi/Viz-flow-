@@ -360,9 +360,15 @@ export default function Home() {
         </div>
       ) : (
         /* Connected Hierarchical Canvas & Code Inspector */
-        <div className="flex-1 flex relative overflow-hidden">
+        <div
+          style={{ height: 'calc(100vh - 56px)', width: '100%', position: 'relative' }}
+          className="flex-1 flex relative overflow-hidden w-full h-[calc(100vh-3.5rem)] min-h-0"
+        >
           {/* Main Canvas */}
-          <div className="flex-1 h-full relative">
+          <div
+            style={{ height: '100%', width: '100%', position: 'relative' }}
+            className="flex-1 h-full w-full relative min-h-0"
+          >
             <FlowCanvas
               initialNodes={analysisData.graph.nodes}
               initialEdges={analysisData.graph.edges}

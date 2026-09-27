@@ -72,10 +72,7 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* React Flow customizations */
-.react-flow__attribution {
-  display: none !important;
-}
+
 
 .react-flow__handle {
   width: 8px !important;

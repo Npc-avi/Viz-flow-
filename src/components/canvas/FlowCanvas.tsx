@@ -181,8 +181,14 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
     onSelectNode(null);
   }, [onSelectNode]);
 
+  const handleFlowError = useCallback((id: string, message: string) => {
+    // Error 004 is a transient initial check before ResizeObserver attaches and measures the DOM bounding box
+    if (id === '004') return;
+    console.warn(`[React Flow Warning ${id}]:`, message);
+  }, []);
+
   return (
-    <div className="w-full h-full relative bg-[#090d16]">
+    <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }} className="w-full h-full bg-[#090d16]">
       {/* Top Floating Canvas Controls & Domain Filters */}
       <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
         {/* Left: Toolbar Controls */}
@@ -268,6 +274,7 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
       </div>
 
       <ReactFlow
+        style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
@@ -275,11 +282,11 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
+        onError={handleFlowError}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.08}
         maxZoom={2}
-        proOptions={{ hideAttribution: true }}
         onlyRenderVisibleElements={true}
       >
         <Background
@@ -342,8 +349,10 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
 
 export default function FlowCanvas(props: FlowCanvasProps) {
   return (
-    <ReactFlowProvider>
-      <CanvasInner {...props} />
-    </ReactFlowProvider>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }} className="w-full h-full relative">
+      <ReactFlowProvider>
+        <CanvasInner {...props} />
+      </ReactFlowProvider>
+    </div>
   );
 }

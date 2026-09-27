@@ -203,7 +203,7 @@ export function buildRouteGraph(
         strokeOpacity: 0.85,
       },
       markerEnd: {
-        type: MarkerType.ArrowClosed,
+        type: (MarkerType?.ArrowClosed || 'arrowclosed') as MarkerType,
         color: theme.border,
         width: 14,
         height: 14,
@@ -254,7 +254,7 @@ export function buildRouteGraph(
           strokeOpacity: 0.9,
         },
         markerEnd: {
-          type: MarkerType.ArrowClosed,
+          type: (MarkerType?.ArrowClosed || 'arrowclosed') as MarkerType,
           color: edgeColor,
           width: 12,
           height: 12,
@@ -307,7 +307,7 @@ export function buildRouteGraph(
             strokeOpacity: 0.75,
           },
           markerEnd: {
-            type: MarkerType.ArrowClosed,
+            type: (MarkerType?.ArrowClosed || 'arrowclosed') as MarkerType,
             color: '#38bdf8',
             width: 10,
             height: 10,
