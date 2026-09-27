@@ -208,11 +208,10 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
           {/* Progressive Disclosure Toggle */}
           <button
             onClick={handleToggleAllDependencies}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] transition-colors ${
-              allExpanded
+            className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] transition-colors ${allExpanded
                 ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300'
                 : 'bg-slate-800/80 hover:bg-slate-700 border-slate-700/60 text-slate-300 hover:text-white'
-            }`}
+              }`}
             title="Toggle downstream function dependencies"
           >
             {allExpanded ? <EyeOff className="w-3 h-3 text-indigo-400" /> : <Eye className="w-3 h-3 text-amber-400" />}
@@ -246,11 +245,10 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
 
             <button
               onClick={() => handleDomainSelect('all')}
-              className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                selectedDomain === 'all'
+              className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${selectedDomain === 'all'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               All ({initialNodes.filter((n) => n.type === 'routeNode').length})
             </button>
@@ -259,11 +257,10 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
               <button
                 key={d.id}
                 onClick={() => handleDomainSelect(d.id)}
-                className={`px-2 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
-                  selectedDomain === d.id
+                className={`px-2 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${selectedDomain === d.id
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
+                  }`}
               >
                 {d.name} ({d.count})
               </button>
@@ -298,14 +295,21 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
           className="!bg-slate-900 !border-slate-800 !shadow-xl !rounded-xl !overflow-hidden [&>button]:!bg-slate-900 [&>button]:!border-slate-800 [&>button]:!fill-slate-300 hover:[&>button]:!fill-white"
         />
         <MiniMap
+          position="bottom-right"
           nodeColor={(node) => {
             if (node.hidden) return 'transparent';
-            if (node.type === 'domainContainer') return 'transparent';
+            if (node.type === 'domainContainer') {
+              const data = node.data as RouteNodeData;
+              const color = (data?.domainColor as string) || '#38bdf8';
+              return `${color}18`;
+            }
             if (node.type === 'routeNode') {
               const data = node.data as RouteNodeData;
               if (data?.httpMethod === 'GET') return '#10b981';
               if (data?.httpMethod === 'POST') return '#6366f1';
+              if (data?.httpMethod === 'PUT') return '#f59e0b';
               if (data?.httpMethod === 'DELETE') return '#f43f5e';
+              if (data?.httpMethod === 'PATCH') return '#a855f7';
               return '#38bdf8';
             }
             if (node.type === 'domainHub' || node.id.startsWith('domain-hub-')) return '#818cf8';
@@ -313,8 +317,23 @@ function CanvasInner({ initialNodes, initialEdges, onSelectNode }: FlowCanvasPro
             if (node.type === 'functionNode') return '#06b6d4';
             return '#334155';
           }}
-          className="!bg-slate-950/80 !border-slate-800 !rounded-xl overflow-hidden"
-          maskColor="rgba(9, 13, 22, 0.7)"
+          nodeStrokeColor={(node) => {
+            if (node.hidden) return 'transparent';
+            if (node.type === 'domainContainer') {
+              const data = node.data as RouteNodeData;
+              return (data?.domainColor as string) || '#38bdf8';
+            }
+            if (node.type === 'gatewayNode' || node.id === 'gateway-root') return '#818cf8';
+            return 'transparent';
+          }}
+          nodeStrokeWidth={2}
+          nodeBorderRadius={6}
+          pannable={true}
+          zoomable={true}
+          className="!bg-slate-950/90 !border !border-slate-800 !rounded-xl !shadow-2xl overflow-hidden"
+          maskColor="rgba(9, 13, 22, 0.75)"
+          maskStrokeColor="#6366f1"
+          maskStrokeWidth={1.5}
         />
       </ReactFlow>
     </div>

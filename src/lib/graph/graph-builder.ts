@@ -170,6 +170,34 @@ export function buildRouteGraph(
     const containerId = `domain-container-${dIndex + 1}`;
     const domainHubId = `domain-hub-${dIndex + 1}`;
 
+    // Cluster Outlay Node for MiniMap (Zero canvas visual impact; defines cluster geometry in MiniMap)
+    nodes.push({
+      id: containerId,
+      type: 'domainContainer',
+      position: { x: islandX, y: islandY },
+      width: containerWidth,
+      height: containerHeight,
+      data: {
+        id: containerId,
+        label: domainName,
+        httpMethod: 'ALL',
+        routePath: `/${domainName.toLowerCase().replace(/ domain/g, '')}`,
+        location: domainRoutes[0].location,
+        codeSnippet: `// ${domainName} Cluster`,
+        calledFunctions: [],
+        domainName,
+        endpointCount: domainRoutes.length,
+        domainColor: theme.border,
+        containerWidth,
+        containerHeight,
+        domainId: containerId,
+      },
+      style: {
+        width: containerWidth,
+        height: containerHeight,
+      },
+    });
+
     // A. Domain Hub Node (Vertically centered for this cluster on the left)
     const hubY = islandY + Math.max(85, (containerHeight / 2) - 40);
     nodes.push({
