@@ -170,27 +170,7 @@ export function buildRouteGraph(
     const containerId = `domain-container-${dIndex + 1}`;
     const domainHubId = `domain-hub-${dIndex + 1}`;
 
-    // A. Visual Bounded Container Node (The Bounded Island Box)
-    nodes.push({
-      id: containerId,
-      type: 'domainContainer',
-      position: { x: islandX, y: islandY },
-      data: {
-        label: `📦 ${domainName}`,
-        httpMethod: 'ALL',
-        routePath: `/${domainName.toLowerCase().replace(/ domain/g, '')}`,
-        location: domainRoutes[0].location,
-        codeSnippet: `// ${domainName} Subsystem Container\n// Contains ${domainRoutes.length} routes with full dependency tracing`,
-        calledFunctions: [],
-        domainName,
-        endpointCount: domainRoutes.length,
-        domainColor: theme.border,
-        containerWidth,
-        containerHeight,
-      },
-    });
-
-    // B. Domain Hub Node (Vertically centered inside the container on the left)
+    // A. Domain Hub Node (Vertically centered for this cluster on the left)
     const hubY = islandY + Math.max(85, (containerHeight / 2) - 40);
     nodes.push({
       id: domainHubId,
