@@ -2,6 +2,7 @@ import type { Node, Edge } from '@xyflow/react';
 import type { HttpMethod, CodeLocation } from './ast';
 
 export interface RouteNodeData {
+  id?: string;
   label?: string;
   httpMethod: HttpMethod;
   routePath: string;
@@ -9,10 +10,15 @@ export interface RouteNodeData {
   location: CodeLocation;
   codeSnippet: string;
   calledFunctions: string[];
+  isExpanded?: boolean;
+  onToggleExpand?: (routeId: string) => void;
+  domainName?: string;
+  domainId?: string;
+  parentRouteId?: string;
   [key: string]: unknown;
 }
 
-export type CanvasRouteNode = Node<RouteNodeData, 'routeNode' | 'functionNode' | 'default'>;
+export type CanvasRouteNode = Node<RouteNodeData, 'routeNode' | 'functionNode' | 'default' | 'group'>;
 
 export interface GraphPayload {
   nodes: CanvasRouteNode[];

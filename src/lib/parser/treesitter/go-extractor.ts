@@ -3,6 +3,7 @@ import path from 'path';
 import { Parser, Language } from '@vscode/tree-sitter-wasm';
 import { ExtractedRouteNode, HttpMethod } from '../../types/ast';
 import { sliceSourceLines } from '../code-slicer';
+import { loadLanguageWasm } from './wasm-loader';
 
 let parserPromise: Promise<{ parser: Parser; language: Language }> | null = null;
 
@@ -15,22 +16,8 @@ export async function getGoParser(): Promise<{ parser: Parser; language: Languag
   }
 
   parserPromise = (async () => {
-    let wasmDir: string;
-    try {
-      wasmDir = path.dirname(require.resolve('@vscode/tree-sitter-wasm'));
-    } catch {
-      wasmDir = path.resolve(process.cwd(), 'node_modules/@vscode/tree-sitter-wasm/wasm');
-    }
-
-    await Parser.init({
-      locateFile(scriptName: string) {
-        return path.join(wasmDir, scriptName);
-      },
-    });
-
+    const language = await loadLanguageWasm('tree-sitter-go.wasm');
     const parser = new Parser();
-    const goWasmPath = path.join(wasmDir, 'tree-sitter-go.wasm');
-    const language = await Language.load(goWasmPath);
     parser.setLanguage(language);
 
     return { parser, language };
@@ -67,6 +54,7 @@ const STANDARD_HANDLERS = new Set(['HandleFunc', 'Handle']);
 /**
  * Extracts backend routes from Go source code files using real Tree-sitter AST queries and node traversal.
  * Supports Gin, Fiber, Echo, Chi, and net/http.
+ * Scans every Go source file in the repository without pre-filter skipping.
  */
 export async function extractGoRoutesTreeSitter(
   repoDir: string,
@@ -78,36 +66,43 @@ export async function extractGoRoutesTreeSitter(
   let parsedFileCount = 0;
   let detectedFramework = 'Go (net/http)';
 
-  const goFiles = sourceFiles.filter((f) => f.endsWith('.go'));
+  // Process all Go source files (excluding unit tests)
+  const goFiles = sourceFiles.filter((f) => f.endsWith('.go') && !f.endsWith('_test.go'));
+
+  const candidateFiles: { relFile: string; sourceCode: string }[] = [];
 
   for (const relFile of goFiles) {
     const fullPath = path.join(repoDir, relFile);
     if (!fs.existsSync(fullPath)) continue;
 
-    let sourceCode = '';
     try {
-      sourceCode = fs.readFileSync(fullPath, 'utf-8');
-    } catch {
-      continue;
-    }
+      const sourceCode = fs.readFileSync(fullPath, 'utf-8');
+      if (sourceCode.trim()) {
+        candidateFiles.push({ relFile, sourceCode });
+      }
+    } catch {}
+  }
 
-    if (!sourceCode.trim()) continue;
+  // Process candidate files in parallel batches of 15
+  const BATCH_SIZE = 15;
+  for (let b = 0; b < candidateFiles.length; b += BATCH_SIZE) {
+    const batch = candidateFiles.slice(b, b + BATCH_SIZE);
 
-    // Detect framework indicators
-    if (sourceCode.includes('github.com/gin-gonic/gin')) {
-      detectedFramework = 'Gin';
-    } else if (sourceCode.includes('github.com/gofiber/fiber')) {
-      detectedFramework = 'Fiber';
-    } else if (sourceCode.includes('github.com/labstack/echo')) {
-      detectedFramework = 'Echo';
-    } else if (sourceCode.includes('github.com/go-chi/chi')) {
-      detectedFramework = 'Chi';
-    }
+    for (const { relFile, sourceCode } of batch) {
+      if (sourceCode.includes('github.com/gin-gonic/gin')) {
+        detectedFramework = 'Gin';
+      } else if (sourceCode.includes('github.com/gofiber/fiber')) {
+        detectedFramework = 'Fiber';
+      } else if (sourceCode.includes('github.com/labstack/echo')) {
+        detectedFramework = 'Echo';
+      } else if (sourceCode.includes('github.com/go-chi/chi')) {
+        detectedFramework = 'Chi';
+      }
 
-    try {
-      const tree = parser.parse(sourceCode);
-      if (!tree) continue;
-      parsedFileCount++;
+      try {
+        const tree = parser.parse(sourceCode);
+        if (!tree) continue;
+        parsedFileCount++;
 
       // 1. Index all function and method declarations in this file for called-function resolution
       const fileFunctionDefs = new Map<string, GoFunctionDef>();
@@ -301,8 +296,9 @@ export async function extractGoRoutesTreeSitter(
       console.warn(`[Tree-sitter Go] Error parsing file ${relFile}:`, err);
     }
   }
+}
 
-  return {
+return {
     routes,
     framework: detectedFramework,
     parsedFileCount,

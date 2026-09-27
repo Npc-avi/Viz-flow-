@@ -99,6 +99,46 @@ function RouteNodeComponent({ data, selected }: NodeProps<CanvasRouteNode>) {
         </span>
       </div>
 
+      {/* Called Functions / Dependencies badge pills with trace toggle */}
+      {data.calledFunctions && data.calledFunctions.length > 0 && (
+        <div className="mt-2.5 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+              <span className="text-amber-400">⚡</span> {data.calledFunctions.length} call{data.calledFunctions.length > 1 ? 's' : ''}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof data.onToggleExpand === 'function' && data.id) {
+                  data.onToggleExpand(data.id);
+                }
+              }}
+              className="text-[10px] font-sans px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-300 hover:text-white border border-indigo-500/40 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+              title="Toggle downstream function nodes on canvas"
+            >
+              <span>{data.isExpanded ? 'Collapse' : 'Trace'}</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {data.calledFunctions.slice(0, 3).map((fn, idx) => (
+              <span
+                key={idx}
+                className="px-1.5 py-0.5 rounded bg-slate-800/90 text-[10px] text-cyan-300 font-mono border border-slate-700/60 max-w-[120px] truncate"
+                title={fn}
+              >
+                {fn}
+              </span>
+            ))}
+            {data.calledFunctions.length > 3 && (
+              <span className="text-[10px] text-slate-500 font-mono">
+                +{data.calledFunctions.length - 3}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <Handle
         type="source"
         position={Position.Right}

@@ -95,12 +95,18 @@ export async function cloneRepository(repoUrl: string, authToken?: string): Prom
  * Resolves repository directory by repoId from temp directory or fixtures
  */
 export function getRepoDirectory(repoId: string): string | null {
-  // Check if it's the offline fixture
+  // Check if it's an offline fixture
   if (repoId === 'fixture-sample-express-app') {
     const fixturePath = path.resolve(process.cwd(), 'fixtures/sample-express-app');
-    if (fs.existsSync(fixturePath)) {
-      return fixturePath;
-    }
+    if (fs.existsSync(fixturePath)) return fixturePath;
+  }
+  if (repoId === 'fixture-sample-go-app') {
+    const fixturePath = path.resolve(process.cwd(), 'fixtures/sample-go-app');
+    if (fs.existsSync(fixturePath)) return fixturePath;
+  }
+  if (repoId === 'fixture-sample-python-app') {
+    const fixturePath = path.resolve(process.cwd(), 'fixtures/sample-python-app');
+    if (fs.existsSync(fixturePath)) return fixturePath;
   }
 
   const baseTempDir = path.join(os.tmpdir(), 'github-analyzer');

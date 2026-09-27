@@ -5,6 +5,7 @@ import { sliceSourceLines } from '../code-slicer';
 import { Project } from 'ts-morph';
 import { extractExpressRoutes } from '../express-extractor';
 import { extractGoRoutesTreeSitter } from '../treesitter/go-extractor';
+import { extractPythonRoutesTreeSitter } from '../treesitter/python-extractor';
 
 export type DetectedLanguage = 'typescript' | 'javascript' | 'python' | 'go' | 'java' | 'rust' | 'polyglot' | 'unknown';
 
@@ -65,10 +66,10 @@ export async function extractUniversalRoutes(
   const detectedFrameworks: string[] = [];
   const activeLanguages = new Set<DetectedLanguage>();
 
-  // 1. Python Extraction (FastAPI, Flask, Django)
+  // 1. Python Extraction (FastAPI, Flask, Django via Tree-sitter AST queries)
   const pythonFiles = sourceFiles.filter((f) => f.endsWith('.py'));
   if (pythonFiles.length > 0) {
-    const pythonResult = extractPythonRoutes(repoDir, pythonFiles);
+    const pythonResult = await extractPythonRoutesTreeSitter(repoDir, pythonFiles);
     if (pythonResult.routes.length > 0) {
       aggregatedRoutes.push(...pythonResult.routes);
       detectedFrameworks.push(pythonResult.framework);
@@ -177,166 +178,7 @@ export async function extractUniversalRoutes(
   };
 }
 
-/**
- * Extracts Python routes across Django, FastAPI, and Flask
- */
-function extractPythonRoutes(
-  repoDir: string,
-  pythonFiles: string[]
-): { routes: ExtractedRouteNode[]; framework: string } {
-  const routes: ExtractedRouteNode[] = [];
-  let counter = 1;
-  let framework = 'Python API';
 
-  for (const relFile of pythonFiles) {
-    // Skip test files, migrations, virtual environments
-    if (relFile.includes('/tests/') || relFile.includes('/test_') || relFile.includes('/migrations/')) {
-      continue;
-    }
-
-    const fullPath = path.join(repoDir, relFile);
-    if (!fs.existsSync(fullPath)) continue;
-
-    let content: string;
-    try {
-      content = fs.readFileSync(fullPath, 'utf-8');
-    } catch {
-      continue;
-    }
-
-    const lines = content.split(/\r?\n/);
-
-    // Look for router prefix if defined in this file (e.g. router = APIRouter(prefix="/api/v1/auth"))
-    let filePrefix = '';
-    const prefixMatch = content.match(/APIRouter\s*\(\s*prefix\s*=\s*["']([^"']+)["']/);
-    if (prefixMatch) {
-      filePrefix = prefixMatch[1].replace(/\/$/, '');
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      // Check for start of route decorator or Django route declaration
-      const isRouteStart =
-        line.startsWith('@') ||
-        line.startsWith('re_path(') ||
-        line.startsWith('path(') ||
-        line.startsWith('url(');
-
-      if (!isRouteStart) continue;
-
-      // Join a multi-line window of up to 10 lines to handle multi-line arguments
-      const windowStr = lines.slice(i, Math.min(lines.length, i + 10)).join(' ');
-
-      // 1. FastAPI: @(router|app|api).get(...) or @(router|app|api).post(...)
-      const fastApiMatch = windowStr.match(/@(?:app|router|api|api_router|[a-zA-Z0-9_]*router)\.(get|post|put|delete|patch)\s*\(\s*(?:path\s*=\s*)?["']([^"']+)["']/i);
-      if (fastApiMatch) {
-        framework = 'FastAPI';
-        const method = fastApiMatch[1].toUpperCase() as HttpMethod;
-        let routePath = fastApiMatch[2];
-        if (filePrefix && !routePath.startsWith(filePrefix)) {
-          routePath = filePrefix + (routePath.startsWith('/') ? routePath : '/' + routePath);
-        }
-
-        const startLine = i + 1;
-        let endLine = Math.min(lines.length, startLine + 10);
-
-        let handlerName = 'handler';
-        for (let k = i + 1; k < Math.min(lines.length, i + 8); k++) {
-          const fnMatch = lines[k].match(/(?:async\s+)?def\s+([a-zA-Z0-9_]+)\s*\(/);
-          if (fnMatch) {
-            handlerName = fnMatch[1];
-            endLine = k + 1;
-            break;
-          }
-        }
-
-        routes.push({
-          id: `py-fastapi-${counter++}`,
-          httpMethod: method,
-          routePath,
-          handlerName,
-          location: { filePath: relFile, startLine, endLine },
-          codeSnippet: sliceSourceLines(repoDir, relFile, startLine, endLine + 6),
-          calledFunctions: [handlerName],
-        });
-        continue;
-      }
-
-      // 2. Django: path(...) or re_path(...) or url(...)
-      const djangoMatch = windowStr.match(/(?:re_path|path|url)\s*\(\s*(?:r?["']([^"']+)["'])\s*,\s*([a-zA-Z0-9_.]+)/);
-      if (djangoMatch) {
-        framework = 'Django / REST Framework';
-        const rawPattern = djangoMatch[1];
-        const handlerName = djangoMatch[2].replace(/\.as_view\(\)?/, '').replace(/csrf_exempt\(/, '');
-
-        let cleanRoute = rawPattern
-          .replace(/^\^/, '/')
-          .replace(/\$$/, '')
-          .replace(/\(\?P<[a-zA-Z0-9_]+>[^)]+\)/g, ':$1')
-          .replace(/[\\?^$]/g, '');
-
-        if (!cleanRoute.startsWith('/')) cleanRoute = '/' + cleanRoute;
-
-        const startLine = i + 1;
-        let endLine = startLine;
-        let balance = (windowStr.match(/\(/g) || []).length - (windowStr.match(/\)/g) || []).length;
-        for (let j = i + 1; j < Math.min(lines.length, i + 12); j++) {
-          if (balance <= 0) break;
-          balance += (lines[j].match(/\(/g) || []).length - (lines[j].match(/\)/g) || []).length;
-          endLine = j + 1;
-        }
-
-        routes.push({
-          id: `py-django-${counter++}`,
-          httpMethod: 'ALL',
-          routePath: cleanRoute,
-          handlerName: handlerName.split('.').pop() || handlerName,
-          location: { filePath: relFile, startLine, endLine },
-          codeSnippet: sliceSourceLines(repoDir, relFile, startLine, endLine),
-          calledFunctions: [handlerName.split('.').pop() || handlerName],
-        });
-        continue;
-      }
-
-      // 3. Flask: @app.route(...) or @bp.route(...)
-      const flaskMatch = windowStr.match(/@(?:[a-zA-Z0-9_]*app|[a-zA-Z0-9_]*bp|api)\.route\s*\(\s*["']([^"']+)["'](?:.*methods=\[([^\]]+)\])?/i);
-      if (flaskMatch) {
-        framework = 'Flask';
-        const routePath = flaskMatch[1];
-        let method: HttpMethod = 'GET';
-        if (flaskMatch[2]) {
-          const m = flaskMatch[2].match(/(GET|POST|PUT|DELETE|PATCH)/i);
-          if (m) method = m[1].toUpperCase() as HttpMethod;
-        }
-
-        const startLine = i + 1;
-        let endLine = Math.min(lines.length, startLine + 8);
-        let handlerName = 'handler';
-        for (let k = i + 1; k < Math.min(lines.length, i + 6); k++) {
-          const fnMatch = lines[k].match(/def\s+([a-zA-Z0-9_]+)\s*\(/);
-          if (fnMatch) {
-            handlerName = fnMatch[1];
-            endLine = k + 1;
-            break;
-          }
-        }
-
-        routes.push({
-          id: `py-flask-${counter++}`,
-          httpMethod: method,
-          routePath,
-          handlerName,
-          location: { filePath: relFile, startLine, endLine },
-          codeSnippet: sliceSourceLines(repoDir, relFile, startLine, endLine + 5),
-          calledFunctions: [handlerName],
-        });
-      }
-    }
-  }
-
-  return { routes, framework };
-}
 
 /**
  * Direct JavaScript and TypeScript route extractor (Express, Fastify, Next.js)
