@@ -52,6 +52,14 @@ export default function RepoInputBar({ onClonedSuccess, isLoading: externalLoadi
         body: JSON.stringify({ repoUrl: targetUrl }),
       });
 
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(
+          `Server returned ${response.status} (${response.statusText || 'Error'}). If you recently added routes, please restart 'npm run dev'. Detail: ${text.slice(0, 100)}`
+        );
+      }
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {

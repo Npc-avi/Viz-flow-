@@ -76,6 +76,14 @@ export default function Home() {
         }),
       });
 
+      const cloneContentType = cloneRes.headers.get('content-type') || '';
+      if (!cloneContentType.includes('application/json')) {
+        const text = await cloneRes.text();
+        throw new Error(
+          `API route /api/clone returned ${cloneRes.status} (${cloneRes.statusText || 'Error'}). If you recently added routes, please restart 'npm run dev'. Detail: ${text.slice(0, 100)}`
+        );
+      }
+
       const cloneData = await cloneRes.json();
       if (!cloneRes.ok || !cloneData.success) {
         throw new Error(cloneData.error || 'Failed to clone repository.');
@@ -90,6 +98,14 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repoId: cloneData.repoId }),
       });
+
+      const analyzeContentType = analyzeRes.headers.get('content-type') || '';
+      if (!analyzeContentType.includes('application/json')) {
+        const text = await analyzeRes.text();
+        throw new Error(
+          `API route /api/analyze returned ${analyzeRes.status} (${analyzeRes.statusText || 'Error'}). Detail: ${text.slice(0, 100)}`
+        );
+      }
 
       const analyzeData = await analyzeRes.json();
       if (!analyzeRes.ok || !analyzeData.success) {
